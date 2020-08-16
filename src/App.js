@@ -55,6 +55,9 @@ export default class App extends Component {
     }
     this.timer = null
     this.stepsLeft = 40
+    this.added = false
+    this.deleted = false
+    this.updateState = false
   }
   async getAllRoutes() {
     const response =
@@ -62,14 +65,12 @@ export default class App extends Component {
         { headers: { 'Content-Type': 'application/json' } }
       )
     const res = await response.json()
-    console.log(res)
     var max = 0;
     for (var i = 0; i < res.length; i++) {
       if (res[i].id > max) {
         max = res[i].id
       }
     }
-    console.log("max is " + max)
     var flag = false
     if (res.length !== this.state.routes.length) {
       flag = true
@@ -95,7 +96,9 @@ export default class App extends Component {
     clearInterval(this.timer)
   }
   componentWillUpdate(nextProps, nextState) {
-    if (nextState.routes === this.state.routes) {
+    if (this.deleted || this.added) {
+      this.deleted = false
+      this.added = false
       this.getAllRoutes()
     }
   }
@@ -158,10 +161,8 @@ export default class App extends Component {
         "type": element[3]
       })
     });
-    console.log(obj)
     var requestOptions
     if (this.state.isUpdate) {
-      console.log("gonna update")
       requestOptions = {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -181,6 +182,8 @@ export default class App extends Component {
         .then(response => console.log(response))
       this.setState({ addRoute: true })
     }
+    this.added = true
+    this.updateState = false
   }
   calculateVehicleCoord = () => {
     const { nextPoint, selected, vehicleLat, vehicleLng } = this.state;
@@ -222,7 +225,6 @@ export default class App extends Component {
   }
   setActive(route, index) {
     const holderPoint = []
-    console.log(index)
     for (let i = 0; i < this.state.routes[index].routePoints.length; i++) {
       const element = this.state.routes[index].routePoints[i];
       holderPoint.push([element.x, element.y, element.comment])
@@ -233,7 +235,7 @@ export default class App extends Component {
       holderCrit.push([element.coordinate.x, element.coordinate.y, element.name, element.type])
     }
     this.setState({ showMap: true, listRoutes: false, selected: holderPoint, crits: holderCrit, defaultDescription: route.description, defaultName: route.name })
-    if (!this.state.isUpdate) {
+    if (!this.updateState) {
       this.timer = setInterval(this.calculateVehicleCoord, 250)
     }
 
@@ -248,6 +250,7 @@ export default class App extends Component {
     else {
       alert("Cancelled the deletion of " + route.name)
     }
+    this.deleted = true
     this.forceUpdate()
   }
   render() {
@@ -265,6 +268,7 @@ export default class App extends Component {
                     this.deleteRoute(route)
                   }}>Delete</button>
                   <button onClick={() => {
+                    this.updateState = true
                     this.setState({ addRoute: false, isUpdate: true, activeId: route.id })
                     this.setActive(route, index)
 
@@ -335,6 +339,7 @@ export default class App extends Component {
             </Map>
           </div>
           <button onClick={() => {
+            this.updateState = false
             this.setState({ showMap: false, listRoutes: true, defaultDescription: "", defaultName: "", isUpdate: false, activeId: null })
           }}>Go Back</button>
         </div>
