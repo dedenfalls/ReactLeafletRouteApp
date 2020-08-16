@@ -17,6 +17,12 @@ var pointIcon2 = L.icon({
   iconAnchor: [12.5, 40],
   popupAnchor: [0, -40]
 })
+var vehicleIcon = L.icon({
+  iconUrl: "/vehicle.png",
+  iconSize: [50, 50],
+  iconAnchor: [12.5, 40],
+  popupAnchor: [0, -40]
+})
 
 export default class App extends Component {
   constructor(props) {
@@ -36,8 +42,19 @@ export default class App extends Component {
       isUpdate: false,
       activeId: null,
       defaultDescription: "",
-      defaultName: ""
+      defaultName: "",
+      vehicleLat: 39.89,
+      vehicleLng: 32.78,
+      nextPoint: 0,
+      distToNextPoint: 0,
+      distToArrive: 0,
+      timeToNextPoint: 0,
+      timeToArrive: 0,
+      vehicleSpeed: 0,
+
     }
+    this.timer = null
+    this.stepsLeft = 40
   }
   async getAllRoutes() {
     const response =
@@ -73,6 +90,9 @@ export default class App extends Component {
       }
     }
 
+  }
+  componentWillUnmount() {
+    clearInterval(this.timer)
   }
   componentWillUpdate(nextProps, nextState) {
     if (nextState.routes === this.state.routes) {
@@ -162,6 +182,44 @@ export default class App extends Component {
       this.setState({ addRoute: true })
     }
   }
+  calculateVehicleCoord = () => {
+    const { nextPoint, selected, vehicleLat, vehicleLng } = this.state;
+    var latDif = selected[nextPoint][0] - vehicleLat
+    var lngDif = selected[nextPoint][1] - vehicleLng
+    var dist = (latDif) ** 2 + (lngDif) ** 2
+    dist = Math.sqrt(dist) // in degrees
+    if (this.stepsLeft > 0) {
+      var latSpeed = latDif / this.stepsLeft
+      var lngSpeed = lngDif / this.stepsLeft
+
+      var vehicleSpeed = Math.sqrt((latSpeed) ** 2 + (lngSpeed) ** 2)// in degrees
+      const timeToNextPoint = dist / vehicleSpeed / 4 //seconds
+
+      var arriveLat = selected[selected.length - 1][0] - vehicleLat
+      var arriveLng = selected[selected.length - 1][1] - vehicleLng
+      var distToArrive = Math.sqrt(arriveLat ** 2 + arriveLng ** 2)// in degrees
+      const timeToArrive = distToArrive / vehicleSpeed / 4 //seconds
+      distToArrive *= 111000 // meters
+      dist *= 111000 // meters
+      vehicleSpeed *= 111000 * 4 * 3.6 // km/h
+      this.stepsLeft--
+      this.setState({ vehicleLat: vehicleLat + latSpeed, vehicleLng: vehicleLng + lngSpeed, vehicleSpeed: vehicleSpeed, timeToArrive: timeToArrive, timeToNextPoint: timeToNextPoint, distToNextPoint: dist, distToArrive: distToArrive })
+    }
+    else {
+      this.stepsLeft = 40
+      if (nextPoint > selected.length - 2) {
+        clearInterval(this.timer)
+        this.setState({ vehicleSpeed: 0, timeToArrive: 0, timeToNextPoint: 0, distToArrive: 0, distToNextPoint: 0 })
+        return
+      }
+      else {
+        this.setState({ nextPoint: nextPoint + 1 })
+        this.calculateVehicleCoord()
+      }
+    }
+
+
+  }
   setActive(route, index) {
     const holderPoint = []
     console.log(index)
@@ -175,6 +233,9 @@ export default class App extends Component {
       holderCrit.push([element.coordinate.x, element.coordinate.y, element.name, element.type])
     }
     this.setState({ showMap: true, listRoutes: false, selected: holderPoint, crits: holderCrit, defaultDescription: route.description, defaultName: route.name })
+    if (!this.state.isUpdate) {
+      this.timer = setInterval(this.calculateVehicleCoord, 250)
+    }
 
   }
   deleteRoute(route) {
@@ -209,7 +270,7 @@ export default class App extends Component {
 
                   }}>Update</button>
                   <button onClick={() => {
-                    this.setState({ addRoute: false, isUpdate: false, })
+                    this.setState({ addRoute: false, isUpdate: false })
                     this.setActive(route, index)
 
                   }}>Set as Active</button>
@@ -282,49 +343,81 @@ export default class App extends Component {
     else {
       return (
         <div className="mapArea">
-          <br></br>
-          <Map className="map" center={position} zoom={this.state.zoom} >
-            <TileLayer
-              attribution='&amp;copy <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
-            {this.state.selected.map((nokta, index) => (
-              <Marker key={index} position={nokta} icon={pointIcon}>
-                <Popup className="popup">
-                  <b>Route point</b> <br></br>
-                lat: {nokta[0]} <br></br> long: {nokta[1]}
+          <div className="mapContainer">
+            <Map className="map" center={position} zoom={this.state.zoom} >
+              <TileLayer
+                attribution='&amp;copy <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              />
+              <Marker position={[this.state.vehicleLat, this.state.vehicleLng]} icon={vehicleIcon}>
+                <Popup>
+                  <b>Vehicle</b> <br></br>
+                lat: {this.state.vehicleLat} <br></br> long: {this.state.vehicleLng}
                 </Popup>
               </Marker>
-
-            ))}
-            {this.state.selected.map(function (nokta, index, array) {
-              if (index < array.length - 1) {
-                return <Polyline key={index}
-                  positions={[[array[index][0], array[index][1]], [array[index + 1][0], array[index + 1][1]]
-                  ]} color='red' weight="10">
+              {this.state.selected.map((nokta, index) => (
+                <Marker key={index} position={[nokta[0], nokta[1]]} icon={pointIcon}>
                   <Popup className="popup">
-                    <b>Route leg</b> <br></br>
-                    {array[index + 1][2]}
+                    {index !== 0 && index !== this.state.selected.length - 1 && <b>Route point</b>}
+                    {index === 0 && <b>Start point</b>}
+                    {index === this.state.selected.length - 1 && <b>End point</b>}
+                    <br></br>
+                lat: {nokta[0]} <br></br> long: {nokta[1]}
                   </Popup>
-                </Polyline>
+                </Marker>
 
-              }
-              return null
-            })}
-            {this.state.crits.map((nokta, index) => (
-              <Marker key={index} position={[nokta[0], nokta[1]]} icon={pointIcon2}>
-                <Popup className="popup">
-                  <b>Critical point</b> <br></br>
-                  {nokta[2]} <br></br> {nokta[3]}
-                </Popup>
-              </Marker>
+              ))}
+              {this.state.selected.map(function (nokta, index, array) {
+                if (index < array.length - 1) {
+                  return <Polyline key={index}
+                    positions={[[array[index][0], array[index][1]], [array[index + 1][0], array[index + 1][1]]
+                    ]} color='red' weight="10">
+                    <Popup className="popup">
+                      <b>Route leg</b> <br></br>
+                      {array[index + 1][2]}
+                    </Popup>
+                  </Polyline>
 
-            ))}
-          </Map>
-          <button onClick={() => {
-            this.setState({ showMap: false, listRoutes: true, defaultDescription: "", defaultName: "", isUpdate: false, activeId: null })
-          }}>Go Back</button>
+                }
+                return null
+              })}
+              {this.state.crits.map((nokta, index) => (
+                <Marker key={index} position={[nokta[0], nokta[1]]} icon={pointIcon2}>
+                  <Popup className="popup">
+                    <b>Critical point</b> <br></br>
+                    {nokta[2]} <br></br> {nokta[3]}
+                  </Popup>
+                </Marker>
+
+              ))}
+            </Map>
+          </div>
+          <div className="stats">
+            <h3 className="statElements">
+              <div className="s1">
+                Speed is <br></br> {parseFloat(this.state.vehicleSpeed).toFixed(2)} km/h,
+              </div>
+              <div className="s1">
+                Time to next point <br></br> {parseFloat(this.state.timeToNextPoint).toFixed(2)} seconds,
+              </div>
+              <div className="s1">
+                Distance to next point <br></br>{parseFloat(this.state.distToNextPoint).toFixed(2)} meters,
+              </div>
+              <div className="s1">
+                Time to arrive <br></br> {parseFloat(this.state.timeToArrive).toFixed(2)} seconds,
+              </div>
+              <div className="s1">
+                Distance to arrive <br></br> {parseFloat(this.state.distToArrive).toFixed(2)} meters,
+              </div>
+
+            </h3>
+            <button onClick={() => {
+              clearInterval(this.timer)
+              this.setState({ showMap: false, listRoutes: true, defaultDescription: "", defaultName: "", isUpdate: false, activeId: null, nextPoint: 0 })
+            }}>Go Back</button>
+          </div>
         </div>
+
       )
     }
   }

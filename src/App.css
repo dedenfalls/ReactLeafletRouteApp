@@ -1,9 +1,22 @@
 .map{
-  height: 90vh;
+  height: 80vh;
   width: 100vw;
+  margin: 0px;
 }
 .leaflet-popup-content-wrapper{
   font-size: larger;
   height: 100px;
   width: 200px;
+}
+.leaflet-container{
+  margin: 0;
+}
+.mapContainer{
+  margin:0;
+}
+.statElements{
+  display: flex;
+}
+.s1{
+  flex: 0 0 20%;
 }
