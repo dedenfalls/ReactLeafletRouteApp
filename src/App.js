@@ -95,7 +95,7 @@ export default class App extends Component {
   componentWillUnmount() {
     clearInterval(this.timer)
   }
-  componentWillUpdate(nextProps, nextState) {
+  componentDidUpdate() {
     if (this.deleted || this.added) {
       this.deleted = false
       this.added = false
@@ -170,6 +170,7 @@ export default class App extends Component {
       }
       fetch('/update', requestOptions)
         .then(response => console.log(response))
+      this.added = true
       this.setState({ addRoute: false, activeId: null, isUpdate: false, showMap: false, listRoutes: true, defaultDescription: "", defaultName: "" })
     }
     else {
@@ -180,9 +181,9 @@ export default class App extends Component {
       }
       fetch('/addRoute', requestOptions)
         .then(response => console.log(response))
+      this.added = true
       this.setState({ addRoute: true })
     }
-    this.added = true
     this.updateState = false
   }
   calculateVehicleCoord = () => {
@@ -253,6 +254,14 @@ export default class App extends Component {
     this.deleted = true
     this.forceUpdate()
   }
+  undoPoint = () => {
+    const { selected } = this.state;
+    this.setState({ selected: selected.slice(0, -1) })
+  }
+  undoCrit = () => {
+    const { crits } = this.state;
+    this.setState({ crits: crits.slice(0, -1) })
+  }
   render() {
     const position = [this.state.lat, this.state.lng]
     if (!this.state.showMap) {
@@ -295,7 +304,9 @@ export default class App extends Component {
             <input type="text" defaultValue={this.state.defaultDescription} name="Desc" id="Desc" placeholder="Enter a Description for the route" />
             <button onClick={this.clearMap}>Clear </button>
             <button id="criticalButton" onClick={this.makeCrit}>Set Critical Points </button>
-            <button onClick={this.addRoute}>Add </button>
+            <button onClick={this.addRoute}>Add </button> &nbsp;
+            {this.state.selected.length > 0 && <button onClick={this.undoPoint}>Undo Last Point</button>}
+            &nbsp; {this.state.crits.length > 0 && <button onClick={this.undoCrit}>Undo Last Critical Point</button>}
           </div>
           <div className="mapArea">
             <br></br>
@@ -340,7 +351,7 @@ export default class App extends Component {
           </div>
           <button onClick={() => {
             this.updateState = false
-            this.setState({ showMap: false, listRoutes: true, defaultDescription: "", defaultName: "", isUpdate: false, activeId: null })
+            this.setState({ showMap: false, listRoutes: true, defaultDescription: "", defaultName: "", isUpdate: false, activeId: null, isCritic: false })
           }}>Go Back</button>
         </div>
       )
