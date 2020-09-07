@@ -51,13 +51,12 @@ export default class App extends Component {
       timeToNextPoint: 0,
       timeToArrive: 0,
       vehicleSpeed: 0,
-
+      deleted: false,
+      added: false,
+      updateState: false
     }
     this.timer = null
     this.stepsLeft = 40
-    this.added = false
-    this.deleted = false
-    this.updateState = false
   }
   async getAllRoutes() {
     const response =
@@ -96,9 +95,10 @@ export default class App extends Component {
     clearInterval(this.timer)
   }
   componentDidUpdate() {
-    if (this.deleted || this.added) {
-      this.deleted = false
-      this.added = false
+    if (this.state.deleted || this.state.added) {
+
+      console.log("updated")
+      this.setState({added:false,deleted:false})
       this.getAllRoutes()
     }
   }
@@ -170,8 +170,8 @@ export default class App extends Component {
       }
       fetch('/update', requestOptions)
         .then(response => console.log(response))
-      this.added = true
-      this.setState({ addRoute: false, activeId: null, isUpdate: false, showMap: false, listRoutes: true, defaultDescription: "", defaultName: "" })
+
+      this.setState({updateState:false, added:true, addRoute: false, activeId: null, isUpdate: false, showMap: false, listRoutes: true, defaultDescription: "", defaultName: "" })
     }
     else {
       requestOptions = {
@@ -181,10 +181,8 @@ export default class App extends Component {
       }
       fetch('/addRoute', requestOptions)
         .then(response => console.log(response))
-      this.added = true
-      this.setState({ addRoute: true })
+      this.setState({updateState:false,added:true, addRoute: true,showMap:false,listRoutes:true})
     }
-    this.updateState = false
   }
   calculateVehicleCoord = () => {
     const { nextPoint, selected, vehicleLat, vehicleLng } = this.state;
@@ -236,7 +234,7 @@ export default class App extends Component {
       holderCrit.push([element.coordinate.x, element.coordinate.y, element.name, element.type])
     }
     this.setState({ showMap: true, listRoutes: false, selected: holderPoint, crits: holderCrit, defaultDescription: route.description, defaultName: route.name })
-    if (!this.updateState) {
+    if (!this.state.updateState) {
       this.timer = setInterval(this.calculateVehicleCoord, 250)
     }
 
@@ -251,8 +249,7 @@ export default class App extends Component {
     else {
       alert("Cancelled the deletion of " + route.name)
     }
-    this.deleted = true
-    this.forceUpdate()
+    this.setState({deleted:true})
   }
   undoPoint = () => {
     const { selected } = this.state;
@@ -276,12 +273,12 @@ export default class App extends Component {
                   <button onClick={() => {
                     this.deleteRoute(route)
                   }}>Delete</button>
-                  <button onClick={() => {
-                    this.updateState = true
-                    this.setState({ addRoute: false, isUpdate: true, activeId: route.id })
-                    this.setActive(route, index)
 
+                  <button onClick={() => {
+                    this.setState({updateState:true, addRoute: false, isUpdate: true, activeId: route.id })
+                    this.setActive(route, index)
                   }}>Update</button>
+
                   <button onClick={() => {
                     this.setState({ addRoute: false, isUpdate: false })
                     this.setActive(route, index)
@@ -350,8 +347,7 @@ export default class App extends Component {
             </Map>
           </div>
           <button onClick={() => {
-            this.updateState = false
-            this.setState({ showMap: false, listRoutes: true, defaultDescription: "", defaultName: "", isUpdate: false, activeId: null, isCritic: false })
+            this.setState({ updateState:false,showMap: false, listRoutes: true, defaultDescription: "", defaultName: "", isUpdate: false, activeId: null, isCritic: false })
           }}>Go Back</button>
         </div>
       )
